@@ -186,7 +186,11 @@ helpers do
       LDAP.mod(LDAP::LDAP_MOD_DELETE, 'ARecord', [ipaddress])
     ]
 
-    modifyhost(zone, host, operation)
+    begin
+      modifyhost(zone, host, operation)
+    rescue NotFoundError
+      raise NotFoundError, "Host #{host} in zone #{zone} does not have ip #{ipaddress}"
+    end
 
     getreverse(ipaddress).each do |reverse|
       deletereverse(ipaddress) if reverse == "#{host}.#{zone}."
@@ -227,13 +231,18 @@ helpers do
       LDAP.mod(LDAP::LDAP_MOD_DELETE, 'CNAMERecord', [cname])
     ]
 
-    modifyhost(zone, host, operation)
+    begin
+      modifyhost(zone, host, operation)
+    rescue NotFoundError
+      raise NotFoundError, "Host #{host} in zone #{zone} does not have cname #{cname}"
+    end
   end
 
   def modifyhost(zone, host, operations)
     ldapconnection.modify("idnsName=#{host},idnsName=#{zone},#{BASEDN}", operations)
    rescue LDAP::ResultError => msg
      raise AlreadyExistsError if ldapconnection.err == 20
+     raise NotFoundError if ldapconnection.err == 16
      raise DatabaseError, msg
   end
 
@@ -333,6 +342,26 @@ helpers do
 
     false
   end
+
+  def host_has_ip?(zone, host, ip)
+    hostips = gethost(zone, host)['ipaddress']
+
+    unless hostips.include? ip
+      return false
+    end
+
+    true
+  end
+
+  def host_has_cname?(zone, host, cname)
+    hostcnames = gethost(zone, host)['cname']
+
+    unless hostcnames.include? cname
+      return false
+    end
+
+    true
+  end
 end
 
 error NotFoundError do
@@ -377,6 +406,24 @@ get '/:zone/?' do
   gethosts(params[:zone]).to_json
 end
 
+post '/:zone/?' do
+  content_type :json
+
+  halt 405, { 'error' => "POST is not supported by zone resources" }.to_json
+end
+
+put '/:zone/?' do
+  content_type :json
+
+  halt 405, { 'error' => "PUT is not supported by zone resources" }.to_json
+end
+
+delete '/:zone/?' do
+  content_type :json
+
+  halt 405, { 'error' => "DELETE is not supported by zone resources" }.to_json
+end
+
 get '/:zone/:host/?' do
   content_type :json
 
@@ -389,6 +436,12 @@ post '/:zone/:host/?' do
   createhost(params[:zone], params[:host])
 
   status 206
+end
+
+put '/:zone/:host/?' do
+  content_type :json
+
+  halt 405, { 'error' => "PUT is not supported by host resources" }.to_json
 end
 
 delete '/:zone/:host/?' do
@@ -407,11 +460,7 @@ end
 
 get '/:zone/:host/ipaddress/:ipaddress/?' do
   content_type :json
-  hostips = gethost(params[:zone], params[:host])['ipaddress']
-
-  unless hostips.include? params[:ipaddress]
-    fail NotFoundError, "Host #{params[:host]} does not have address #{params[:ipaddress]}"
-  end
+  raise(NotFoundError, "Host #{params[:host]} does not have ip #{params[:ipaddress]}") unless host_has_ip?(params[:zone], params[:host], params[:ipaddress])
 
   if getreverse(params[:ipaddress])[0] == "#{params[:host]}.#{params[:zone]}."
     return { 'reverse' => true }.to_json
@@ -422,7 +471,11 @@ end
 
 post '/:zone/:host/ipaddress/:ipaddress/?' do
   content_type :json
-  request_params = JSON.parse(request.body.read)
+  begin
+    request_params = JSON.parse(request.body.read)
+  rescue JSON::ParserError => msg
+    fail InvalidInputError, "JSON parser error : #{msg}"
+  end
 
   addiptohost(params[:zone], params[:host], params[:ipaddress])
   if request_params['reverse'] == true
@@ -434,7 +487,13 @@ end
 
 put '/:zone/:host/ipaddress/:ipaddress/?' do
   content_type :json
-  request_params = JSON.parse(request.body.read)
+  begin
+    request_params = JSON.parse(request.body.read)
+  rescue JSON::ParserError => msg
+    fail InvalidInputError, "JSON parser error : #{msg}"
+  end
+
+  raise(NotFoundError, "Host #{params[:host]} does not have ip #{params[:ipaddress]}") unless host_has_ip?(params[:zone], params[:host], params[:ipaddress])
 
   myreverse = false
   getreverse(params[:ipaddress]).each do |reverse|
@@ -454,6 +513,8 @@ end
 delete '/:zone/:host/ipaddress/:ipaddress/?' do
   content_type :json
 
+  raise(NotFoundError, "Host #{params[:host]} does not have ip #{params[:ipaddress]}") unless host_has_ip?(params[:zone], params[:host], params[:ipaddress])
+
   removeipfromhost(params[:zone], params[:host], params[:ipaddress])
 
   status 204
@@ -467,11 +528,7 @@ end
 
 get '/:zone/:host/cname/:cname/?' do
   content_type :json
-  hostcnames = gethost(params[:zone], params[:host])['cname']
-
-  unless hostcnames.include? params[:cnmae]
-    fail NotFoundError, "Host #{params[:host]} does not have cname #{params[:cname]}"
-  end
+  fail(NotFoundError, "Host #{params[:host]} does not have cname #{params[:cname]}") unless host_has_cname?(params[:zone], params[:host], params[:cname])
 
   {}.to_json
 end
@@ -484,9 +541,16 @@ post '/:zone/:host/cname/:cname/?' do
   status 206
 end
 
+put '/:zone/:host/cname/:cname/?' do
+  content_type :json
+
+  halt 405, { 'error' => "PUT is not supported by cname resources" }.to_json
+end
+
 delete '/:zone/:host/cname/:cname/?' do
   content_type :json
 
+  fail(NotFoundError, "Host #{params[:host]} does not have cname #{params[:cname]}") unless host_has_cname?(params[:zone], params[:host], params[:cname])
   removecnamefromhost(params[:zone], params[:host], params[:cname])
 
   status 204

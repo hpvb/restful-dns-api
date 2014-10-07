@@ -11,7 +11,7 @@ reverse_zones:
 managed_zones:
   test.example.com:
     sourceip:
-      - 178.84.46.106
+      - 172.16.32.0/24
     managedip:
       - 10.20.30.128/25
 
