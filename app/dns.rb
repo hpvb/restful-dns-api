@@ -409,19 +409,19 @@ end
 post '/:zone/?' do
   content_type :json
 
-  halt 405, { 'error' => "POST is not supported by zone resources" }.to_json
+  halt 405, { 'error' => 'POST is not supported by zone resources' }.to_json
 end
 
 put '/:zone/?' do
   content_type :json
 
-  halt 405, { 'error' => "PUT is not supported by zone resources" }.to_json
+  halt 405, { 'error' => 'PUT is not supported by zone resources' }.to_json
 end
 
 delete '/:zone/?' do
   content_type :json
 
-  halt 405, { 'error' => "DELETE is not supported by zone resources" }.to_json
+  halt 405, { 'error' => 'DELETE is not supported by zone resources' }.to_json
 end
 
 get '/:zone/:host/?' do
@@ -441,7 +441,7 @@ end
 put '/:zone/:host/?' do
   content_type :json
 
-  halt 405, { 'error' => "PUT is not supported by host resources" }.to_json
+  halt 405, { 'error' => 'PUT is not supported by host resources' }.to_json
 end
 
 delete '/:zone/:host/?' do
@@ -460,7 +460,7 @@ end
 
 get '/:zone/:host/ipaddress/:ipaddress/?' do
   content_type :json
-  raise(NotFoundError, "Host #{params[:host]} does not have ip #{params[:ipaddress]}") unless host_has_ip?(params[:zone], params[:host], params[:ipaddress])
+  fail(NotFoundError, "Host #{params[:host]} does not have ip #{params[:ipaddress]}") unless host_has_ip?(params[:zone], params[:host], params[:ipaddress])
 
   if getreverse(params[:ipaddress])[0] == "#{params[:host]}.#{params[:zone]}."
     return { 'reverse' => true }.to_json
@@ -474,7 +474,7 @@ post '/:zone/:host/ipaddress/:ipaddress/?' do
   begin
     request_params = JSON.parse(request.body.read)
   rescue JSON::ParserError => msg
-    fail InvalidInputError, "JSON parser error : #{msg}"
+    raise InvalidInputError, "JSON parser error : #{msg}"
   end
 
   addiptohost(params[:zone], params[:host], params[:ipaddress])
@@ -490,10 +490,10 @@ put '/:zone/:host/ipaddress/:ipaddress/?' do
   begin
     request_params = JSON.parse(request.body.read)
   rescue JSON::ParserError => msg
-    fail InvalidInputError, "JSON parser error : #{msg}"
+    raise InvalidInputError, "JSON parser error : #{msg}"
   end
 
-  raise(NotFoundError, "Host #{params[:host]} does not have ip #{params[:ipaddress]}") unless host_has_ip?(params[:zone], params[:host], params[:ipaddress])
+  fail(NotFoundError, "Host #{params[:host]} does not have ip #{params[:ipaddress]}") unless host_has_ip?(params[:zone], params[:host], params[:ipaddress])
 
   myreverse = false
   getreverse(params[:ipaddress]).each do |reverse|
@@ -513,7 +513,7 @@ end
 delete '/:zone/:host/ipaddress/:ipaddress/?' do
   content_type :json
 
-  raise(NotFoundError, "Host #{params[:host]} does not have ip #{params[:ipaddress]}") unless host_has_ip?(params[:zone], params[:host], params[:ipaddress])
+  fail(NotFoundError, "Host #{params[:host]} does not have ip #{params[:ipaddress]}") unless host_has_ip?(params[:zone], params[:host], params[:ipaddress])
 
   removeipfromhost(params[:zone], params[:host], params[:ipaddress])
 
@@ -544,7 +544,7 @@ end
 put '/:zone/:host/cname/:cname/?' do
   content_type :json
 
-  halt 405, { 'error' => "PUT is not supported by cname resources" }.to_json
+  halt 405, { 'error' => 'PUT is not supported by cname resources' }.to_json
 end
 
 delete '/:zone/:host/cname/:cname/?' do
