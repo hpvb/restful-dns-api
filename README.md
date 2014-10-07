@@ -83,6 +83,10 @@ curl -X PUT -H 'Content-Type: application/json' -d '{ "reverse": true }' http://
 }
 
 ```
+Note that it is still possible to create arbitrary A records in any zone that a user can manage:
+```
+curl -X POST -H 'Content-Type: application/json' -d '{ "reverse": false }' http://54.76.21.209/test.example.com/google/ipaddress/173.194.65.139
+```
 
 # The API
 ## Listing resources
@@ -185,3 +189,9 @@ curl -X PUT -H 'Content-Type: application/json' -d '{ "reverse": true }' http://
    "error" : "Address 10.20.30.244 already has a reverse record (server10.test.example.com.)"
 }
 ```
+# TODO
+* Create RHEL/CentOS RPM packages
+* Example single-master configuration with openldap, bind, and apache.
+* Normalize error messages
+* Create proper rubygem
+* Split the code more logically
