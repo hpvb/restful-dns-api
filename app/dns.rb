@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
-# Copyright (C) 2014 Hein-Pieter can Braam <hp@tmm.cx>
+# Copyright (C) 2014 Hein-Pieter van Braam <hp@tmm.cx>
 #
 # This file is part of Simple RESTful DNS api.
 #
