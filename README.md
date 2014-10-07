@@ -16,6 +16,7 @@ Care was taken to ensure the software can function on a RHEL6/CentOS6 system wit
 * (optional) Automatic management of PTR records
 * IP based authentication for zone updates
 * Limit PTR record management for subnets per zone
+* Automatic creation of LDAP zone objects
 
 # Configuration file
 An example configuration file is included in the 'examples' directory. 
@@ -66,6 +67,8 @@ This section controls the regular zones that the server will be willing to contr
 The list of source IPs is a list of subnets from which that zone can be managed. A client originating from a different IP address will not be able to modifiy (or see) the zone.
 
 The list of managed IPs is a list of subnets for which this zone can create reverse records. This can be a subset of the available reverse records. This allows an administrator to separate zones by VPC (If using amazon). Different cloud providers have similar systems. Cloudstack has 'networks' for instance.
+
+A zone does not need to be created in the directory. On the first valid write attempt to the directory the zone will be created along with the requested record.
 
 # Access control
 When a user tries to create a record in a zone that they are not allowed to modify based on their source IP address the following will happen:
