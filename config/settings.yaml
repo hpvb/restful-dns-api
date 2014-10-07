@@ -1,0 +1,17 @@
+---
+ldap:
+  server: localhost
+  basedn: ou=dns,dc=example,dc=com
+  binddn: cn=root,dc=example,dc=com
+  bindpw: secret
+reverse_zones:
+  20.10.in-addr.arpa:
+    - 10.20.30.0/24
+    - 10.20.40.0/24
+managed_zones:
+  test.example.com:
+    sourceip:
+      - 178.84.46.106
+    managedip:
+      - 10.20.30.128/25
+
