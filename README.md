@@ -85,7 +85,7 @@ curl -X PUT -H 'Content-Type: application/json' -d '{ "reverse": true }' http://
 ```
 Note that it is still possible to create arbitrary A records in any zone that a user can manage:
 ```
-curl -X POST -H 'Content-Type: application/json' -d '{ "reverse": false }' http://54.76.21.209/test.example.com/google/ipaddress/173.194.65.139
+curl -X POST -H 'Content-Type: application/json' -d '{ "reverse": false }' http://dns-server/test.example.com/google/ipaddress/173.194.65.139
 ```
 
 # The API
