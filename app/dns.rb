@@ -98,15 +98,14 @@ helpers do
       LDAP.mod(LDAP::LDAP_MOD_ADD, 'objectClass', %w(top idnsRecord idnsZone)),
       LDAP.mod(LDAP::LDAP_MOD_ADD, 'idnsName', [zone]),
       LDAP.mod(LDAP::LDAP_MOD_ADD, 'idnsZoneActive', ['TRUE']),
-      LDAP.mod(LDAP::LDAP_MOD_ADD, 'idnsSOAmName', ['server.example.com.']),
-      LDAP.mod(LDAP::LDAP_MOD_ADD, 'idnsSOArName', ['root.server.example.com.']),
+      LDAP.mod(LDAP::LDAP_MOD_ADD, 'idnsSOAmName', [ZoneDefaults['soa']['mname']]),
+      LDAP.mod(LDAP::LDAP_MOD_ADD, 'idnsSOArName', [ZoneDefaults['soa']['rname']]),
       LDAP.mod(LDAP::LDAP_MOD_ADD, 'idnsSOAserial', ['1']),
-      LDAP.mod(LDAP::LDAP_MOD_ADD, 'idnsSOArefresh', ['10800']),
-      LDAP.mod(LDAP::LDAP_MOD_ADD, 'idnsSOAretry', ['900']),
-      LDAP.mod(LDAP::LDAP_MOD_ADD, 'idnsSOAexpire', ['604800']),
-      LDAP.mod(LDAP::LDAP_MOD_ADD, 'idnsSOAminimum', ['86400']),
-      LDAP.mod(LDAP::LDAP_MOD_ADD, 'ARecord', ['127.0.0.1']),
-      LDAP.mod(LDAP::LDAP_MOD_ADD, 'NSRecord', ['server.example.com.'])
+      LDAP.mod(LDAP::LDAP_MOD_ADD, 'idnsSOArefresh', [ZoneDefaults['soa']['refresh']]),
+      LDAP.mod(LDAP::LDAP_MOD_ADD, 'idnsSOAretry', [ZoneDefaults['soa']['retry']]),
+      LDAP.mod(LDAP::LDAP_MOD_ADD, 'idnsSOAexpire', [ZoneDefaults['soa']['expire']]),
+      LDAP.mod(LDAP::LDAP_MOD_ADD, 'idnsSOAminimum', [ZoneDefaults['soa']['minimum']]),
+      LDAP.mod(LDAP::LDAP_MOD_ADD, 'NSRecord', ZoneDefaults['nameservers'])
     ]
 
     begin

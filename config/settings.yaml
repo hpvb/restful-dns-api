@@ -4,10 +4,6 @@ ldap:
   basedn: ou=dns,dc=example,dc=com
   binddn: cn=root,dc=example,dc=com
   bindpw: secret
-reverse_zones:
-  20.10.in-addr.arpa:
-    - 10.20.30.0/24
-    - 10.20.40.0/24
 managed_zones:
   test.example.com:
     sourceip:
@@ -15,4 +11,18 @@ managed_zones:
       - 127.0.0.1
     managedip:
       - 10.20.30.128/25
-
+reverse_zones:
+  20.10.in-addr.arpa:
+    - 10.20.30.0/24
+    - 10.20.40.0/24
+zone_defaults:
+  soa:
+    mname: server.example.com
+    rname: hostmaster.example.com.
+    refresh: 10800
+    retry: 900
+    expire: 604800
+    minimum: 86400
+  nameservers:
+    - master.example.com.
+    - master2.example.com.

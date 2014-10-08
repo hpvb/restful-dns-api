@@ -44,23 +44,34 @@ managed_zones:
       - 192.168.0.0/24
     managedip:
       - 10.20.30.128/25
+zone_defaults:
+  soa:
+    mname: server.example.com
+    rname: hostmaster.example.com.
+    refresh: 10800
+    retry: 900
+    expire: 604800
+    minimum: 86400
+  nameservers:
+    - master.example.com.
+    - master2.example.com.
 ```
 ## LDAP section
 This section controls the LDAP connection the software will use
 
-server: Servername or ip address
-basedn: Basedn of your DNS root
-binddn: User to bind to the directory with
-bindpw: Password of the user 
+server: Servername or ip address  
+basedn: Basedn of your DNS root  
+binddn: User to bind to the directory with  
+bindpw: Password of the user  
 
 Note that currently the software defaults to using ldaps. This is hardcoded at the moment.
 
-## reverse zone section
+## Reverse zone section
 This section controls the reverse zones that the server will be willing to control. Each zone has a set of subnets that it will be willing to create reverse records for. See the example for the syntax. 
 
 In the example above the server will refuse to create reverse records for 10.20.50.1, for instance.
 
-## managed zones section
+## Managed zones section
 This section controls the regular zones that the server will be willing to control. Each zone has two sets of subnets:
 * Source ips
 * Managed ips
@@ -70,6 +81,9 @@ The list of source IPs is a list of subnets from which that zone can be managed.
 The list of managed IPs is a list of subnets for which this zone can create reverse records. This can be a subset of the available reverse records. This allows an administrator to separate zones by VPC (If using amazon). Different cloud providers have similar systems. Cloudstack has 'networks' for instance.
 
 A zone does not need to be created in the directory. On the first valid write attempt to the directory the zone will be created along with the requested record.
+
+## Zone defaults section
+This section controls the default settings for each SOA record as it is created. The values refer to the SOA record fields. Nameservers should be a list of nameservers who are authoritive for this zone.
 
 # Access control
 When a user tries to create a record in a zone that they are not allowed to modify based on their source IP address the following will happen:

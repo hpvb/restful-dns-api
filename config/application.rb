@@ -31,4 +31,14 @@ settings['managed_zones'].each do |managed_zone, networks|
   end
 end
 
+ZoneDefaults = {}
+ZoneDefaults['soa'] = {}
+ZoneDefaults['soa']['mname'] = settings['zone_defaults']['soa']['mname']
+ZoneDefaults['soa']['rname'] = settings['zone_defaults']['soa']['rname']
+ZoneDefaults['soa']['refresh'] = settings['zone_defaults']['soa']['refresh'].to_s
+ZoneDefaults['soa']['retry'] = settings['zone_defaults']['soa']['retry'].to_s
+ZoneDefaults['soa']['expire'] = settings['zone_defaults']['soa']['expire'].to_s
+ZoneDefaults['soa']['minimum'] = settings['zone_defaults']['soa']['minimum'].to_s
+ZoneDefaults['nameservers'] = settings['zone_defaults']['nameservers']
+
 require File.join(File.expand_path(File.dirname(__FILE__) + '/../app/dns.rb'))
