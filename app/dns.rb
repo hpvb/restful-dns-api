@@ -8,7 +8,7 @@
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 2 of the License, or
 # (at your option) any later version.
-# 
+#
 # Simple RESTful DNS api is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
@@ -379,6 +379,27 @@ helpers do
 
     true
   end
+
+  def is_boolean?(val)
+    return true if val.is_a?(TrueClass)
+    return true if val.is_a?(FalseClass)
+
+    false
+  end
+
+  def parse_postdata(data)
+    begin
+      request_params = JSON.parse(data)
+    rescue JSON::ParserError => msg
+      raise InvalidInputError, "JSON parser error : #{msg}"
+    end
+
+    unless is_boolean? request_params['reverse']
+      fail InvalidInputError, 'Reverse must be a boolean value'
+    end
+
+    request_params
+  end
 end
 
 error NotFoundError do
@@ -402,6 +423,8 @@ error NotAllowedError do
 end
 
 before do
+  content_type 'application/json'
+
   pathmatches = request.path_info.match(/^\/([0-9a-zA-Z\.-]+)\/*.*/)
   if pathmatches
     zone = pathmatches.captures[0]
@@ -412,72 +435,53 @@ before do
 end
 
 get '/' do
-  content_type :json
-
   getzones.to_json
 end
 
 get '/:zone/?' do
-  content_type :json
-
   gethosts(params[:zone]).to_json
 end
 
 post '/:zone/?' do
-  content_type :json
-
   halt 405, { 'error' => 'POST is not supported by zone resources' }.to_json
 end
 
 put '/:zone/?' do
-  content_type :json
-
   halt 405, { 'error' => 'PUT is not supported by zone resources' }.to_json
 end
 
 delete '/:zone/?' do
-  content_type :json
-
   halt 405, { 'error' => 'DELETE is not supported by zone resources' }.to_json
 end
 
 get '/:zone/:host/?' do
-  content_type :json
-
   gethost(params[:zone], params[:host]).to_json
 end
 
 post '/:zone/:host/?' do
-  content_type :json
-
   createhost(params[:zone], params[:host])
 
   status 206
 end
 
 put '/:zone/:host/?' do
-  content_type :json
-
   halt 405, { 'error' => 'PUT is not supported by host resources' }.to_json
 end
 
 delete '/:zone/:host/?' do
-  content_type :json
-
   deletehost(params[:zone], params[:host])
 
   status 204
 end
 
 get '/:zone/:host/ipaddress/?' do
-  content_type :json
-
   gethost(params[:zone], params[:host])['ipaddress'].to_json
 end
 
 get '/:zone/:host/ipaddress/:ipaddress/?' do
-  content_type :json
-  fail(NotFoundError, "Host #{params[:host]} does not have ip #{params[:ipaddress]}") unless host_has_ip?(params[:zone], params[:host], params[:ipaddress])
+  unless host_has_ip?(params[:zone], params[:host], params[:ipaddress])
+    fail(NotFoundError, "Host #{params[:host]} does not have ip #{params[:ipaddress]}")
+  end
 
   if getreverse(params[:ipaddress])[0] == "#{params[:host]}.#{params[:zone]}."
     return { 'reverse' => true }.to_json
@@ -487,12 +491,7 @@ get '/:zone/:host/ipaddress/:ipaddress/?' do
 end
 
 post '/:zone/:host/ipaddress/:ipaddress/?' do
-  content_type :json
-  begin
-    request_params = JSON.parse(request.body.read)
-  rescue JSON::ParserError => msg
-    raise InvalidInputError, "JSON parser error : #{msg}"
-  end
+  request_params = parse_postdata(request.body.read)
 
   addiptohost(params[:zone], params[:host], params[:ipaddress])
   if request_params['reverse'] == true
@@ -503,14 +502,11 @@ post '/:zone/:host/ipaddress/:ipaddress/?' do
 end
 
 put '/:zone/:host/ipaddress/:ipaddress/?' do
-  content_type :json
-  begin
-    request_params = JSON.parse(request.body.read)
-  rescue JSON::ParserError => msg
-    raise InvalidInputError, "JSON parser error : #{msg}"
-  end
+  request_params = parse_postdata(request.body.read)
 
-  fail(NotFoundError, "Host #{params[:host]} does not have ip #{params[:ipaddress]}") unless host_has_ip?(params[:zone], params[:host], params[:ipaddress])
+  unless host_has_ip?(params[:zone], params[:host], params[:ipaddress])
+    fail(NotFoundError, "Host #{params[:host]} does not have ip #{params[:ipaddress]}")
+  end
 
   myreverse = false
   getreverse(params[:ipaddress]).each do |reverse|
@@ -528,9 +524,9 @@ put '/:zone/:host/ipaddress/:ipaddress/?' do
 end
 
 delete '/:zone/:host/ipaddress/:ipaddress/?' do
-  content_type :json
-
-  fail(NotFoundError, "Host #{params[:host]} does not have ip #{params[:ipaddress]}") unless host_has_ip?(params[:zone], params[:host], params[:ipaddress])
+  unless host_has_ip?(params[:zone], params[:host], params[:ipaddress])
+    fail(NotFoundError, "Host #{params[:host]} does not have ip #{params[:ipaddress]}")
+  end
 
   removeipfromhost(params[:zone], params[:host], params[:ipaddress])
 
@@ -538,36 +534,32 @@ delete '/:zone/:host/ipaddress/:ipaddress/?' do
 end
 
 get '/:zone/:host/cname/?' do
-  content_type :json
-
   gethost(params[:zone], params[:host])['cname'].to_json
 end
 
 get '/:zone/:host/cname/:cname/?' do
-  content_type :json
-  fail(NotFoundError, "Host #{params[:host]} does not have cname #{params[:cname]}") unless host_has_cname?(params[:zone], params[:host], params[:cname])
+  unless host_has_cname?(params[:zone], params[:host], params[:cname])
+    fail(NotFoundError, "Host #{params[:host]} does not have cname #{params[:cname]}")
+  end
 
   {}.to_json
 end
 
 post '/:zone/:host/cname/:cname/?' do
-  content_type :json
-
   addcnametohost(params[:zone], params[:host], params[:cname])
 
   status 206
 end
 
 put '/:zone/:host/cname/:cname/?' do
-  content_type :json
-
   halt 405, { 'error' => 'PUT is not supported by cname resources' }.to_json
 end
 
 delete '/:zone/:host/cname/:cname/?' do
-  content_type :json
+  unless host_has_cname?(params[:zone], params[:host], params[:cname])
+    fail(NotFoundError, "Host #{params[:host]} does not have cname #{params[:cname]}")
+  end
 
-  fail(NotFoundError, "Host #{params[:host]} does not have cname #{params[:cname]}") unless host_has_cname?(params[:zone], params[:host], params[:cname])
   removecnamefromhost(params[:zone], params[:host], params[:cname])
 
   status 204
