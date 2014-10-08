@@ -151,7 +151,7 @@ curl -X POST -H 'Content-Type: application/json' -d '{}' http://dns-server/test.
 ```
 Or with:
 ```
-curl -X POST -H 'Content-Type: application/json' -d '{ "reverse" => true }' http://dns-server/test.example.com/server2/ipaddress/10.20.30.7
+curl -X POST -H 'Content-Type: application/json' -d '{ "reverse": true }' http://dns-server/test.example.com/server2/ipaddress/10.20.30.7
 ```
 Note: If a host does not exist for an IP it will also be created. This facilitates running the script automatically during system boot.
 ### CNAME
