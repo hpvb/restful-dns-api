@@ -13,6 +13,7 @@ Care was taken to ensure the software can function on a RHEL6/CentOS6 system wit
 # Features
 
 * Add / remove A records
+* Add / remove CNAME records
 * (optional) Automatic management of PTR records
 * IP based authentication for zone updates
 * Limit PTR record management for subnets per zone
@@ -154,6 +155,14 @@ Or with:
 curl -X POST -H 'Content-Type: application/json' -d '{ "reverse": true }' http://dns-server/test.example.com/server2/ipaddress/10.20.30.7
 ```
 Note: If a host does not exist for an IP it will also be created. This facilitates running the script automatically during system boot.
+Additionally, IP creation can be put in 'replace' mode meaning that the reverse address will be taken from an existing host. This is useful in auto-provisioned hosts which may not always be automatically cleaned up. Replacement or not is triggered by the 'replace=true' query parameter. Other values will not have any effects.
+```
+curl -X POST -H 'Content-Type: application/json' -d '{ "reverse": true }' https://dns-server/test.example.com/host1/ipaddress/10.20.30.130
+{
+   "error" : "Address 10.20.30.130 already has a reverse record (host.test.example.com.)"
+}
+curl -X POST -H 'Content-Type: application/json' -d '{ "reverse": true }' https://dns-server/test.example.com/host1/ipaddress/10.20.30.130?replace=true
+```
 ### CNAME
 ```
 curl -X POST -H 'Content-Type: application/json' -d '{}' http://dns-server/test.example.com/server4/cname/blah.example.com
@@ -191,6 +200,14 @@ curl -X PUT -H 'Content-Type: application/json' -d '{ "reverse": true }' http://
 {
    "error" : "Address 10.20.30.244 already has a reverse record (server10.test.example.com.)"
 }
+```
+As with creation, a reverse record can be replaced.
+```
+curl -X PUT -H 'Content-Type: application/json' -d '{ "reverse": true }' https://dns-server/test.example.com/host1/ipaddress/10.20.30.130
+{
+   "error" : "Address 10.20.30.130 already has a reverse record (host.test.example.com.)"
+}
+curl -X PUT -H 'Content-Type: application/json' -d '{ "reverse": true }' https://dns-server/test.example.com/host1/ipaddress/10.20.30.130?replace=true
 ```
 # TODO
 * Create RHEL/CentOS RPM packages

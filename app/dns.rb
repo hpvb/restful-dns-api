@@ -210,7 +210,7 @@ helpers do
     end
 
     getreverse(ipaddress).each do |reverse|
-      deletereverse(ipaddress) if reverse == "#{host}.#{zone}."
+      deletereverse(zone, ipaddress) if reverse == "#{host}.#{zone}."
     end
   end
 
@@ -309,7 +309,7 @@ helpers do
     reverseip.reverse
   end
 
-  def createreverse(ip, zone, host)
+  def createreverse(ip, zone, host, replace=false)
     reversezone = getzoneforip(ip)
     ptrname = reverseip(ip).sub(".#{reversezone}", '')
     fail(NotAllowedError, "Reverse zones for #{ip} are not managed by this host") unless reversezone
@@ -317,13 +317,17 @@ helpers do
 
     existing = getreverse(ip)
     unless existing.empty?
-      fail AlreadyExistsError, "Address #{ip} already has a reverse record (#{existing[0]})"
+      unless replace
+        fail AlreadyExistsError, "Address #{ip} already has a reverse record (#{existing[0]})"
+      end
+
+      deletereverse(zone, ip)
     end
 
     addptrtohost(reversezone, ptrname, "#{host}.#{zone}.")
   end
 
-  def deletereverse(ip)
+  def deletereverse(zone, ip)
     fail(NotAllowedError, "Reverse records for #{ip} are not allowed for this zone") unless reverse_allowed_in_zone?(zone, ip)
     reversezone = getzoneforip(ip)
     ptrname = reverseip(ip).sub(".#{reversezone}", '')
@@ -389,16 +393,16 @@ helpers do
 
   def parse_postdata(data)
     begin
-      request_params = JSON.parse(data)
+      postdata = JSON.parse(data)
     rescue JSON::ParserError => msg
       raise InvalidInputError, "JSON parser error : #{msg}"
     end
 
-    unless is_boolean? request_params['reverse']
+    unless is_boolean? postdata['reverse']
       fail InvalidInputError, 'Reverse must be a boolean value'
     end
 
-    request_params
+    postdata
   end
 end
 
@@ -491,18 +495,20 @@ get '/:zone/:host/ipaddress/:ipaddress/?' do
 end
 
 post '/:zone/:host/ipaddress/:ipaddress/?' do
-  request_params = parse_postdata(request.body.read)
+  postdata = parse_postdata(request.body.read)
+  replace = request['replace'] == "true"
 
   addiptohost(params[:zone], params[:host], params[:ipaddress])
-  if request_params['reverse'] == true
-    createreverse(params[:ipaddress], params[:zone], params[:host])
+  if postdata['reverse'] == true
+    createreverse(params[:ipaddress], params[:zone], params[:host], replace)
   end
 
   status 206
 end
 
 put '/:zone/:host/ipaddress/:ipaddress/?' do
-  request_params = parse_postdata(request.body.read)
+  postdata = parse_postdata(request.body.read)
+  replace = request['replace'] == "true"
 
   unless host_has_ip?(params[:zone], params[:host], params[:ipaddress])
     fail(NotFoundError, "Host #{params[:host]} does not have ip #{params[:ipaddress]}")
@@ -513,11 +519,11 @@ put '/:zone/:host/ipaddress/:ipaddress/?' do
     myreverse = true if reverse == "#{params[:host]}.#{params[:zone]}."
   end
 
-  if request_params['reverse'] == true
+  if postdata['reverse'] == true
     return if myreverse
-    createreverse(params[:ipaddress], params[:zone], params[:host])
+    createreverse(params[:ipaddress], params[:zone], params[:host], replace)
   else
-    deletereverse(params[:ipaddress]) if myreverse
+    deletereverse(params[:zone], params[:ipaddress]) if myreverse
   end
 
   status 204
