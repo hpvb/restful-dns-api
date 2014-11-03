@@ -41,4 +41,4 @@ ZoneDefaults['soa']['expire'] = settings['zone_defaults']['soa']['expire'].to_s
 ZoneDefaults['soa']['minimum'] = settings['zone_defaults']['soa']['minimum'].to_s
 ZoneDefaults['nameservers'] = settings['zone_defaults']['nameservers']
 
-require File.join(File.expand_path(File.dirname(__FILE__) + '/../app/dns.rb'))
+require 'restful_dns_api'
