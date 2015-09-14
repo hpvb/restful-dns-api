@@ -73,8 +73,8 @@ module RestfulDnsApi
         zones = []
 
         begin
-          ldapquery(BASEDN, LDAP::LDAP_SCOPE_SUBTREE, '(objectClass=idnsZone)', ['idnsname']) do |entry|
-            zones.push entry['idnsname'][0] unless entry['idnsname'][0].end_with?('.in-addr.arpa')
+          ldapquery(BASEDN, LDAP::LDAP_SCOPE_SUBTREE, '(objectClass=idnsZone)', ['idnsName']) do |entry|
+            zones.push entry['idnsName'][0] unless entry['idnsName'][0].end_with?('.in-addr.arpa')
           end
         rescue NotFoundError
           raise NotFoundError, 'No zones found'
@@ -85,7 +85,7 @@ module RestfulDnsApi
 
       def zone_exists?(zone)
         begin
-          ldapconnection.search("idnsName=#{zone},#{BASEDN}", LDAP::LDAP_SCOPE_BASE, '(objectClass=*)', %w(arecord cnamerecord)) do |_entry|
+          ldapconnection.search("idnsName=#{zone},#{BASEDN}", LDAP::LDAP_SCOPE_BASE, '(objectClass=*)', %w(aRecord cNAMERecord)) do |_entry|
           end
         rescue LDAP::ResultError
           return false
@@ -122,8 +122,8 @@ module RestfulDnsApi
         hosts = []
 
         begin
-          ldapquery("idnsName=#{zone},#{BASEDN}", LDAP::LDAP_SCOPE_ONELEVEL, '(objectClass=idnsRecord)', ['idnsname']) do |entry|
-            hosts.push entry['idnsname'][0]
+          ldapquery("idnsName=#{zone},#{BASEDN}", LDAP::LDAP_SCOPE_ONELEVEL, '(objectClass=idnsRecord)', %w(idnsName)) do |entry|
+            hosts.push entry['idnsName'][0]
           end
         rescue NotFoundError
           raise NotFoundError, "No hosts found in zone #{zone}"
@@ -136,9 +136,14 @@ module RestfulDnsApi
         hostdata = {}
 
         begin
-          ldapquery("idnsName=#{host},idnsName=#{zone},#{BASEDN}", LDAP::LDAP_SCOPE_BASE, '(objectClass=*)', %w(arecord cnamerecord)) do |entry|
-            hostdata['ipaddress'] = entry['arecord'] || []
-            hostdata['cname'] = entry['cnamerecord'] || []
+          ldapquery("idnsName=#{host},idnsName=#{zone},#{BASEDN}", LDAP::LDAP_SCOPE_BASE, '(objectClass=*)', %w(aRecord cNAMERecord dNSTTL)) do |entry|
+            hostdata['ipaddress'] = entry['aRecord'] || []
+            hostdata['cname'] = entry['cNAMERecord'] || []
+            if entry['dNSTTL']
+              hostdata['ttl'] = entry['dNSTTL'][0]
+            else
+              hostdata['ttl'] = nil
+            end
           end
         rescue NotFoundError
           raise NotFoundError, "Host #{host} not found in zone #{zone}"
@@ -149,7 +154,7 @@ module RestfulDnsApi
 
       def host_exists?(zone, host)
         begin
-          ldapconnection.search("idnsName=#{host},idnsName=#{zone},#{BASEDN}", LDAP::LDAP_SCOPE_BASE, '(objectClass=*)', %w(arecord cnamerecord)) do |_entry|
+          ldapconnection.search("idnsName=#{host},idnsName=#{zone},#{BASEDN}", LDAP::LDAP_SCOPE_BASE, '(objectClass=*)', %w(aRecord cNAMERecord)) do |_entry|
           end
         rescue LDAP::ResultError
           return false
@@ -160,23 +165,25 @@ module RestfulDnsApi
         true
       end
 
-      def createhost(zone, host)
+      def createhost(zone, host, ttl)
         createzone(zone) unless zone_exists?(zone)
         fail(InvalidInputError, "#{host} is not a valid RFC1123 hostname") unless host =~ /#{ValidHostRegex}/
 
-        createrecord(zone, host)
+        createrecord(zone, host, ttl)
       end
 
-      def createptr(zone, ptr)
+      def createptr(zone, ptr, ttl)
         createzone(zone) unless zone_exists?(zone)
-        createrecord(zone, ptr)
+        createrecord(zone, ptr, ttl)
       end
 
-      def createrecord(zone, name)
+      def createrecord(zone, name, ttl)
         entry = [
           LDAP.mod(LDAP::LDAP_MOD_ADD, 'objectClass', %w(top idnsRecord)),
           LDAP.mod(LDAP::LDAP_MOD_ADD, 'idnsName', [name])
         ]
+
+        entry.push(LDAP.mod(LDAP::LDAP_MOD_ADD, 'dNSTTL', [ttl.to_s])) if ttl
 
         begin
           ldapconnection.add("idnsName=#{name},idnsName=#{zone},#{BASEDN}", entry)
@@ -187,7 +194,6 @@ module RestfulDnsApi
 
       def addiptohost(zone, host, ipaddress)
         fail(InvalidInputError, "#{ipaddress} is not a valid ip address") unless IPAddress.valid? ipaddress
-        createhost(zone, host) unless host_exists?(zone, host)
 
         operation = [
           LDAP.mod(LDAP::LDAP_MOD_ADD, 'ARecord', [ipaddress])
@@ -211,13 +217,14 @@ module RestfulDnsApi
           raise NotFoundError, "Host #{host} in zone #{zone} does not have ip #{ipaddress}"
         end
 
-        getreverse(ipaddress).each do |reverse|
-          deletereverse(zone, ipaddress) if reverse == "#{host}.#{zone}."
-        end
+        reverse = getreverse(ipaddress)
+
+        return unless reverse['record']
+        deletereverse(zone, ipaddress) if reverse['record'][0] == "#{host}.#{zone}."
       end
 
-      def addptrtohost(zone, host, ptraddress)
-        createptr(zone, host) unless host_exists?(zone, host)
+      def addptrtohost(zone, host, ptraddress, ttl)
+        createptr(zone, host, ttl) unless host_exists?(zone, host)
 
         operation = [
           LDAP.mod(LDAP::LDAP_MOD_ADD, 'PTRRecord', [ptraddress])
@@ -232,10 +239,9 @@ module RestfulDnsApi
 
       def addcnametohost(zone, host, cname)
         fail(InvalidInputError, "#{host} is not a valid RFC1123 hostname") unless host =~ /#{ValidFQDNRegex}/
-        createhost(zone, host) unless host_exists?(zone, host)
 
         operation = [
-          LDAP.mod(LDAP::LDAP_MOD_ADD, 'CNAMERecord', [cname])
+          LDAP.mod(LDAP::LDAP_MOD_ADD, 'cNAMERecord', [cname])
         ]
 
         begin
@@ -247,13 +253,53 @@ module RestfulDnsApi
 
       def removecnamefromhost(zone, host, cname)
         operation = [
-          LDAP.mod(LDAP::LDAP_MOD_DELETE, 'CNAMERecord', [cname])
+          LDAP.mod(LDAP::LDAP_MOD_DELETE, 'cNAMERecord', [cname])
         ]
 
         begin
           modifyhost(zone, host, operation)
         rescue NotFoundError
           raise NotFoundError, "Host #{host} in zone #{zone} does not have cname #{cname}"
+        end
+      end
+
+      def changettlforhost(zone, host, ttl)
+        hostdata = gethost(zone, host);
+        if hostdata['ttl']
+          operation = [
+            LDAP.mod(LDAP::LDAP_MOD_REPLACE, 'dNSTTL', [ttl.to_s])
+          ]
+        else
+          operation = [
+            LDAP.mod(LDAP::LDAP_MOD_ADD, 'dNSTTL', [ttl.to_s])
+          ]
+        end
+
+        begin
+          modifyhost(zone, host, operation)
+        rescue NotFoundError
+          raise NotFoundError, "Host #{host} in zone #{zone} does not have a TTL"
+        end
+
+        hostdata['ipaddress'].each do |ipaddress|
+          reverse = getreverse(ipaddress)
+          return unless reverse['record']
+
+          if reverse['record'][0] == "#{host}.#{zone}."
+            reversezone = getzoneforip(ipaddress)
+            ptrname = reverseip(ipaddress).sub(".#{reversezone}", '')
+            if reverse['ttl'] 
+              operation = [
+                LDAP.mod(LDAP::LDAP_MOD_REPLACE, 'dNSTTL', [ttl.to_s])
+              ]
+            else
+              operation = [
+                LDAP.mod(LDAP::LDAP_MOD_ADD, 'dNSTTL', [ttl.to_s])
+              ]
+            end
+
+            modifyhost(reversezone, ptrname, operation)
+          end
         end
       end
 
@@ -295,10 +341,15 @@ module RestfulDnsApi
         reversezone = getzoneforip(ip)
         ptrname = reverseip(ip).sub(".#{reversezone}", '')
 
-        reversedata = []
+        reversedata = {}
         begin
-          ldapconnection.search("idnsName=#{ptrname},idnsName=#{reversezone},#{BASEDN}", LDAP::LDAP_SCOPE_BASE, '(objectClass=*)', ['ptrrecord']) do |entry|
-            reversedata = entry['ptrrecord']
+          ldapconnection.search("idnsName=#{ptrname},idnsName=#{reversezone},#{BASEDN}", LDAP::LDAP_SCOPE_BASE, '(objectClass=*)', %w(pTRRecord dNSTTL)) do |entry|
+            reversedata['record'] = entry['pTRRecord']
+            if entry['dNSTTL']
+              reversedata['ttl'] = entry['dNSTTL'][0]
+            else
+              reversedata['ttl'] = nil
+            end
           end
         rescue LDAP::ResultError
         end
@@ -318,15 +369,16 @@ module RestfulDnsApi
         fail(NotAllowedError, "Reverse records for #{ip} are not allowed for this zone") unless reverse_allowed_in_zone?(zone, ip)
 
         existing = getreverse(ip)
-        unless existing.empty?
+        if getreverse(ip)['record']
           unless replace
-            fail AlreadyExistsError, "Address #{ip} already has a reverse record (#{existing[0]})"
+            fail AlreadyExistsError, "Address #{ip} already has a reverse record (#{existing['record'][0]})"
           end
 
           deletereverse(zone, ip)
         end
 
-        addptrtohost(reversezone, ptrname, "#{host}.#{zone}.")
+        hostdata = gethost(zone, host)
+        addptrtohost(reversezone, ptrname, "#{host}.#{zone}.", hostdata['ttl'])
       end
 
       def deletereverse(zone, ip)
@@ -393,6 +445,11 @@ module RestfulDnsApi
         false
       end
 
+      def is_numeric?(val)
+        return true if val.is_a? Integer
+        !!(val =~ /\A[0-9]+\z/)
+      end
+
       def parse_postdata(data)
         begin
           postdata = JSON.parse(data)
@@ -400,8 +457,18 @@ module RestfulDnsApi
           raise InvalidInputError, "JSON parser error : #{msg}"
         end
 
-        unless is_boolean? postdata['reverse']
-          fail InvalidInputError, 'Reverse must be a boolean value'
+        if postdata['reverse']
+          unless is_boolean? postdata['reverse']
+            fail InvalidInputError, 'Reverse must be a boolean value'
+          end
+        else
+          postdata['reverse'] = false
+        end
+
+        if postdata['ttl']
+          unless is_numeric? postdata['ttl']
+            fail InvalidInputError, 'TTL must be a number'
+          end
         end
 
         postdata
@@ -465,13 +532,20 @@ module RestfulDnsApi
     end
 
     post '/:zone/:host/?' do
-      createhost(params[:zone], params[:host])
+      postdata = parse_postdata(request.body.read)
+      createhost(params[:zone], params[:host], postdata['ttl'])
 
       status 206
     end
 
     put '/:zone/:host/?' do
-      halt 405, { 'error' => 'PUT is not supported by host resources' }.to_json
+      postdata = parse_postdata(request.body.read)
+      unless postdata['ttl']
+        halt 400, { 'error' => "TTL value is mandatory" }.to_json
+      end
+
+      changettlforhost(params[:zone], params[:host], postdata['ttl'])
+      gethost(params[:zone], params[:host]).to_json
     end
 
     delete '/:zone/:host/?' do
@@ -489,7 +563,7 @@ module RestfulDnsApi
         fail(NotFoundError, "Host #{params[:host]} does not have ip #{params[:ipaddress]}")
       end
 
-      if getreverse(params[:ipaddress])[0] == "#{params[:host]}.#{params[:zone]}."
+      if getreverse(params[:ipaddress])['record'][0] == "#{params[:host]}.#{params[:zone]}."
         return { 'reverse' => true }.to_json
       end
 
@@ -500,6 +574,7 @@ module RestfulDnsApi
       postdata = parse_postdata(request.body.read)
       replace = request['replace'] == 'true'
 
+      createhost(params[:zone], params[:host], postdata['ttl']) unless host_exists?(params[:zone], params[:host])
       addiptohost(params[:zone], params[:host], params[:ipaddress])
       if postdata['reverse'] == true
         createreverse(params[:ipaddress], params[:zone], params[:host], replace)
@@ -517,8 +592,9 @@ module RestfulDnsApi
       end
 
       myreverse = false
-      getreverse(params[:ipaddress]).each do |reverse|
-        myreverse = true if reverse == "#{params[:host]}.#{params[:zone]}."
+      reverse = getreverse(params[:ipaddress])
+      if reverse['record']
+        myreverse = true if reverse['record'][0] == "#{params[:host]}.#{params[:zone]}."
       end
 
       if postdata['reverse'] == true
@@ -554,6 +630,9 @@ module RestfulDnsApi
     end
 
     post '/:zone/:host/cname/:cname/?' do
+      postdata = parse_postdata(request.body.read)
+
+      createhost(params[:zone], params[:host], postdata['ttl']) unless host_exists?(params[:zone], params[:host])
       addcnametohost(params[:zone], params[:host], params[:cname])
 
       status 206

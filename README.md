@@ -14,6 +14,7 @@ Care was taken to ensure the software can function on a RHEL6/CentOS6 system wit
 
 * Add / remove A records
 * Add / remove CNAME records
+* Add / modify DNS TTLs per record
 * (optional) Automatic management of PTR records
 * IP based authentication for zone updates
 * Limit PTR record management for subnets per zone
@@ -156,9 +157,15 @@ curl -s http://dns-server/test.example.com/server11/ipaddress/10.20.30.244
 ```
 ## Creating resources
 ### Host
+Without a TTL
 ```
 curl -X POST -H 'Content-Type: application/json' -d '{}' http://dns-server/test.example.com/server2
 ```
+or with:
+```
+curl -X POST -H 'Content-Type: application/json' -d '{"ttl": 123}' http://dns-server/test.example.com/server2
+```
+Note: The TTL value is in seconds.
 ### IP address
 Without a reverse address:
 ```
@@ -177,6 +184,11 @@ curl -X POST -H 'Content-Type: application/json' -d '{ "reverse": true }' https:
 }
 curl -X POST -H 'Content-Type: application/json' -d '{ "reverse": true }' https://dns-server/test.example.com/host1/ipaddress/10.20.30.130?replace=true
 ```
+Note: It is also possible to create a record/ip combination with a TTL in one go, this combines with the 'reverse' logic also:
+```
+curl -X POST -H 'Content-Type: application/json' -d '{ "reverse": true, "ttl": 123 }' http://dns-server/test.example.com/server2/ipaddress/10.20.30.7
+```
+
 ### CNAME
 ```
 curl -X POST -H 'Content-Type: application/json' -d '{}' http://dns-server/test.example.com/server4/cname/blah.example.com
@@ -198,7 +210,12 @@ Note: Reverse addresses belonging to the host will also be removed
 curl -X DELETE http://dns-server/test.example.com/server3/cname/blah.example.com
 ```
 ## Modifying resouces
-Only IP addresses can be modified at this time, and only whether or not a reverse record for it should exist.
+### Host
+Changing the TTL of a host record
+```
+curl -X PUT -H 'Content-Type: application/json' -d '{ "ttl": 123 }' http://dns-server/test.example.com/server10/
+```
+Note: Changing the TTL of a host will also change the TTL of any associated PTR records.
 ### IP address
 Creating the reverse record
 ```
