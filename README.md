@@ -133,9 +133,12 @@ curl -s http://dns-server/test.example.com/server
    "cname" : [],
    "ipaddress" : [
       "127.0.0.1"
-   ]
+   ],
+   "ttl" : 123
 }
 ```
+Note: the 'ttl' value will be 'null' for records that didn't have a ttl value explicitly set. This means 'server default' and could change.
+
 ### Details of an IP
 ```
 curl -s http://dns-server/test.example.com/server/ipaddress/127.0.0.1
