@@ -168,7 +168,7 @@ or with:
 ```
 curl -X POST -H 'Content-Type: application/json' -d '{"ttl": 123}' http://dns-server/test.example.com/server2
 ```
-Note: The TTL value is in seconds.
+Note: The TTL value is in seconds. TTL values can only be set on 'host' resources, not ipaddresses or cnames. However: As a convience, when creating an ipaddress or cname resource for a non-existing host record the TTL of the request will be used to implicitly also create the host record. To change that TTL however a PUT request needs to be made to the host record. Updating TTL on an ipaddress or cname resource will not work.
 ### IP address
 Without a reverse address:
 ```
@@ -196,7 +196,10 @@ curl -X POST -H 'Content-Type: application/json' -d '{ "reverse": true, "ttl": 1
 ```
 curl -X POST -H 'Content-Type: application/json' -d '{}' http://dns-server/test.example.com/server4/cname/blah.example.com
 ```
-Note: As with IP addresses a host will be created if it does not exist.
+Note: As with IP addresses a host will be created if it does not exist. When a TTL is set on a non-existing host record it gets set on the host.
+```
+curl -X POST -H 'Content-Type: application/json' -d '{ "ttl": 123 }' http://dns-server/test.example.com/server4/cname/blah.example.com
+```
 ## Deleting resources
 ### Host
 ```

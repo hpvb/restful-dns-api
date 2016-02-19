@@ -21,7 +21,7 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency "rack"
   spec.add_dependency "sinatra"
-  spec.add_dependency "ruby-ldap"
+  #spec.add_dependency "ruby-ldap"
   spec.add_dependency "ipaddress"
   spec.add_dependency "json"
 end
